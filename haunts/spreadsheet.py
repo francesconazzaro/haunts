@@ -65,12 +65,14 @@ def sync_events(config_dir, sheet, data, calendars, days, month, projects=[], al
             # …or action is not empty and we want to act on empty Action lines only
             (action and "empty" in allowed_actions)
         ):
-            LOGGER.debug(f"Action {action} at line {y+1}, not in allowed actions {allowed_actions}")
+            LOGGER.debug(
+                f"Action {action} at line {y + 1}, not in allowed actions {allowed_actions}"
+            )
             continue
 
         current_date = get_col(row, headers_id["Date"])
         if not current_date:
-            LOGGER.debug(f"No date found at line {y+1}, skipping")
+            LOGGER.debug(f"No date found at line {y + 1}, skipping")
             continue
 
         if projects and project not in projects:
@@ -108,7 +110,7 @@ def sync_events(config_dir, sheet, data, calendars, days, month, projects=[], al
                 + Fore.BLACK
                 + (
                     f"Cannot find a calendar id associated to project "
-                    f"\"{get_col(row, headers_id['Project'])}\" at line {y+2}"
+                    f'"{get_col(row, headers_id["Project"])}" at line {y + 2}'
                 )
                 + Style.RESET_ALL
             )
@@ -124,7 +126,7 @@ def sync_events(config_dir, sheet, data, calendars, days, month, projects=[], al
             click.echo(
                 f"Deleted event "
                 f'"{get_col(row, headers_id[get("ACTIVITY_COLUMN_NAME", "Activity")])}" in date '
-                f'{date.strftime("%d/%m")} from calendar {project}'
+                f"{date.strftime('%d/%m')} from calendar {project}"
             )
             request = sheet.values().batchClear(
                 spreadsheetId=get("CONTROLLER_SHEET_DOCUMENT_ID"),
@@ -187,14 +189,14 @@ def sync_events(config_dir, sheet, data, calendars, days, month, projects=[], al
                     # Save the event id, required to interact with the event in future
                     {
                         "range": (
-                            f"{month}!{headers[get('EVENT_ID_COLUMN_NAME', 'Event id')]}" f"{y + 2}"
+                            f"{month}!{headers[get('EVENT_ID_COLUMN_NAME', 'Event id')]}{y + 2}"
                         ),
                         "values": [[event["id"]]],
                     },
                     # Quick link to the event on the calendar
                     {
                         "range": f"{month}!{headers[get('LINK_COLUMN_NAME', 'Link')]}{y + 2}",
-                        "values": [[f"=HYPERLINK(\"{event['link']}\";\"open\")"]],
+                        "values": [[f'=HYPERLINK("{event["link"]}";"open")']],
                     },
                 ],
             },
@@ -297,6 +299,30 @@ def get_calendars_names(sheet, flat=True):
     return names
 
 
+def get_calendars_by_id(sheet):
+    """Map every Google calendar id in the config sheet ("id" and "read_from" columns) to a
+    project name.
+
+    Calendars in "read_from" column take precedence, then the first occurence wins.
+    """
+    RANGE = f"{get('CONTROLLER_SHEET_NAME', 'config')}!A2:C"
+    calendars = (
+        sheet.values().get(spreadsheetId=get("CONTROLLER_SHEET_DOCUMENT_ID"), range=RANGE).execute()
+    )
+    read_from_ids = {}
+    ids = {}
+    for cols in calendars.get("values", []):
+        if len(cols) < 2:
+            continue
+        id, alias = cols[0], cols[1]
+        read_from = cols[2] if len(cols) > 2 else None
+        if id:
+            ids.setdefault(id, alias)
+        if read_from:
+            read_from_ids.setdefault(read_from, alias)
+    return {**ids, **read_from_ids}
+
+
 def get_first_empty_line(sheet, month):
     """Get the first empty line in a month."""
     RANGE = f"{month}!A1:A"
@@ -336,7 +362,7 @@ def append_line(
     next_av_line = get_first_empty_line(sheet, month)
     headers_id = get_headers(sheet, month, indexes=True)
     # Now write a new line at position next_av_line
-    RANGE = f"{month}!A{next_av_line}:ZZ{next_av_line}"
+    range = f"{month}!A{next_av_line}:ZZ{next_av_line}"
     values_line = []
     formatted_time_col = time_col.strftime("%H:%M") if time_col else ""
     formatted_duration_col = format_duration(duration_col) if duration_col else ""
@@ -369,7 +395,7 @@ def append_line(
             "valueInputOption": "USER_ENTERED",
             "data": [
                 {
-                    "range": RANGE,
+                    "range": range,
                     "values": [values_line],
                 },
             ],
